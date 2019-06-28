@@ -3,13 +3,19 @@ function log( msg )
 	minetest.log( "action", string.format( "[%s]: %s", mod_name, msg ) )
 end
 
+log( 'Started as "'..mod_name..'"' )
+
+-- Setting up mod-global variables
+
 local mod_storage = minetest.get_mod_storage()
 local player = minetest.localplayer
-local old_locations = minetest.deserialize( mod_storage:get_string( "locations" ) )
-if old_locations == nil then old_locations = {} end
 local locations = {}
 local DISPLAY_MARKERS = true
-local keys = 0
+
+-- Managing locations
+-- ==================
+
+-- Add locations at position, with markertext
 
 function add_location( pos, markertext )
 	local hud_id = player:hud_add({
@@ -22,67 +28,123 @@ function add_location( pos, markertext )
 	mod_storage:set_string( "locations", minetest.serialize( locations ) )
 end
 
+--- Loading locations from mod_storage
+
+local old_locations = minetest.deserialize( mod_storage:get_string( "locations" ) )
+if old_locations == nil then old_locations = {} end
+
 for i,loc in ipairs( old_locations ) do
 	add_location( loc.pos, loc.markertext )
 end
 
+-- Formspec management
+-- ===================
+
 local marker_selected = 4
+local color_selected = "FF0000"
+
+--- Show main-menu formspec
 
 function show_formspec()
+	local function color_button( x, y, color, name, colorize, push_opacity )
+		local button_string = [===[
+
+		image_button[%d,%d;1,1
+		;locations_markers_csm_textures_color_border.png^(locations_markers_csm_textures_color_inside.png^\[colorize:#%s:%d);%s;
+		;true;false;locations_markers_csm_textures_color_border.png^(locations_markers_csm_textures_color_inside.png^\[colorize:#%s:%d)^\[opacity:%d ]
+
+		]===]
+		return( string.format( button_string, x, y, color, colorize, name, color, colorize, push_opacity ) )
+	end
 	local formspec = string.format(
 	[===[
 
 	size[3,3]
 	background[-0.5,-0.4;4,4;locations_markers_csm_textures_bg1.png ]
 
-	image_button_exit[1,1;1,1;locations_markers_csm_textures_OK.png^(locations_markers_csm_textures_marker%d.png^\[opacity:200);add;;;false;locations_markers_csm_textures_OK.png ]
+	image_button_exit[1,1;1,1;locations_markers_csm_textures_OK.png^(locations_markers_csm_textures_marker%d.png^\[colorize:#%s:%d^\[opacity:200);add;;;false;locations_markers_csm_textures_OK.png ]
 
-	image_button[1,2;1,1;locations_markers_csm_textures_DEL.png;del;;true;false;locations_markers_csm_textures_DEL.png^(locations_markers_csm_textures_DEL_PUSH.png^\[opacity:200) ]
+	image_button_exit[0,2;1,1;locations_markers_csm_textures_DEL_ALL.png;del_all;;true;false;locations_markers_csm_textures_DEL_ALL.png^\[opacity:200 ]
+	image_button_exit[2,2;1,1;locations_markers_csm_textures_DEL.png;del;;true;false;locations_markers_csm_textures_DEL.png^\[opacity:200 ]
 
 	image_button[0,1;1,1;locations_markers_csm_textures_arrowl.png;left;;true;false;locations_markers_csm_textures_arrowl.png^\[opacity:200 ]
 	image_button[2,1;1,1;locations_markers_csm_textures_arrow.png;right;;true;false;locations_markers_csm_textures_arrow.png^\[opacity:200 ]
 
-	]===],
-	marker_selected)
+	]===]..color_button( 0,0,"FF0000","red",120,200)..color_button( 1,0,"00FF00","green",120,200)..color_button( 2,0,"0000FF","blue",120,200),
+	marker_selected, color_selected, 120 )
 	minetest.log( formspec )
 	minetest.show_formspec( "posname", formspec )
 end
 
-function toggle_markers()
-	DISPLAY_MARKERS = not DISPLAY_MARKERS
-	for i,loc in ipairs( locations ) do
-		player:hud_change( loc.hud_id, "text", string.format( "%s^[opacity:0", loc.markertext ) )
-	end
-	local state = "off"
-	if DISPLAY_MARKERS then state = "on" end
-	log( "Toggled markers. display: "..state )
-end
+--- Handling formspec input
 
 minetest.register_on_formspec_input( function( formname, fields )
 	minetest.log( dump(fields) )
-	if fields.del == "" then
+	if fields.del_all ~= nil then
 		for i, loc in ipairs( locations ) do
 			player:hud_remove( loc.hud_id )
 		end
 		locations = {}
 		mod_storage:set_string( "locations", minetest.serialize( locations ) )
 	end
-	if fields.add == "" then
+	if fields.del ~= nil then
+		for i, loc in ipairs( locations ) do
+			local pos = player:get_pos()
+			log( vector.distance( pos, loc.pos ) )
+			if vector.distance( pos, loc.pos ) < 3 then
+				player:hud_remove( loc.hud_id )
+				locations[ i ] = nil
+			end
+		end
+		mod_storage:set_string( "locations", minetest.serialize( locations ) )
+	end
+	if fields.add ~= nil then
 		pos = player:get_pos()
 		log( "New location set at "..dump(pos) )
-		local markertext = string.format( "locations_markers_csm_textures_marker%d.png^[colorize:#FF2000:64", marker_selected )
+		local markertext = string.format( "locations_markers_csm_textures_marker%d.png^[colorize:#%s:120", marker_selected, color_selected )
 		add_location( pos, markertext )
 	end
-	if fields.left == "" then
+	if fields.left ~= nil then
 		marker_selected = math.fmod(marker_selected+1,5)
 		show_formspec()
 	end
-	if fields.right == "" then
+	if fields.right ~= nil then
 		marker_selected = math.fmod(marker_selected+4,5)
+		show_formspec()
+	end
+	if fields.red ~= nil then
+		color_selected = "FF0000"
+		show_formspec()
+	end
+	if fields.green ~= nil then
+		color_selected = "00FF00"
+		show_formspec()
+	end
+	if fields.blue ~= nil then
+		color_selected = "0000FF"
 		show_formspec()
 	end
 	minetest.log( marker_selected )
 end )
+
+-- Mange HUD markers
+-- =================
+
+--- Toggle markers
+
+function toggle_markers()
+	DISPLAY_MARKERS = not DISPLAY_MARKERS
+	if not DISPLAY_MARKERS then
+		for i,loc in ipairs( locations ) do
+			player:hud_change( loc.hud_id, "text", string.format( "%s^[opacity:0", loc.markertext ) )
+		end
+	end
+	local state = "off"
+	if DISPLAY_MARKERS then state = "on" end
+	log( "Toggled markers. display: "..state )
+end
+
+--- Update HUD elements
 
 function update_hud( loc )
 	local pos = player:get_pos()
@@ -111,6 +173,10 @@ function update_hud( loc )
 	player:hud_change( loc.hud_id, "scale", { x=scale, y=scale }  )
 end
 
+-- Manage Input, monitor keys
+-- ==========================
+
+local keys = 0
 minetest.register_globalstep( function( dtime )
 
 	--registering key presses
