@@ -14,6 +14,11 @@ end
 -- Add locations at position, with markertext
 
 local function add( locations, pos, markertext )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
 	local hud_id = player:hud_add({
 				hud_elem_type = "image",
 				position = { x = .5, y = .5 },

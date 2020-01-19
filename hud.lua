@@ -6,6 +6,12 @@ local display_markers = true
 --- Toggle markers
 
 local function toggle( locations )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
+
 	display_markers = not display_markers
 	if not display_markers then
 		for i,loc in ipairs( locations ) do
@@ -20,6 +26,12 @@ end
 --- Update one hud element
 
 local function update_one( loc )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
+
 	local pos = player:get_pos()
 	local dist = vector.distance( pos, loc.pos )
 	if dist < 3 or dist > 200 then
@@ -60,6 +72,12 @@ end
 -- Delete all hud elements
 
 local function del_all( locations )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
+	
 	for i, loc in ipairs( locations ) do
 		player:hud_remove( loc.hud_id )
 	end

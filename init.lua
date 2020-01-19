@@ -5,7 +5,6 @@ end
 
 log( 'Started as "'..mod_name..'"' )
 
-
 -- Setting up mod-global variables
 
 
@@ -23,6 +22,11 @@ local formspec = dofile( "locations_markers_csm:formspec.lua" )
 local keys = 0
 local player = minetest.localplayer
 minetest.register_globalstep( function( dtime )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
 
 	--registering key presses
 	local new_keys = player:get_key_pressed()
@@ -48,6 +52,12 @@ end )
 --- Handling formspec input
 
 minetest.register_on_formspec_input( function( formname, fields )
+	if not player and not minetest.localplayer then
+		return
+	elseif not player then
+		player = minetest.localplayer
+	end
+
 	if formname ~= "location_marker_main" then return end
 	if fields.del_all ~= nil then
 		hud.del_all( locations )
